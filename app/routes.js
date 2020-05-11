@@ -53,63 +53,8 @@ module.exports = app => {
         .replace(/[^01]/gi, ''), 2);
     }
 
-
-    var rawData = {header : "", data : [], numAxes : -1}; 
-
     app.get("/data", (req, res) => {
-        
-        //get the header text into rawData.header
-        fs.readFile('./data/Setup7_sensor3.bin', function(err,data){
-            if(err){
-               throw err; 
-            }else{
-                var rawDataString = data.toString();
-                var start = rawDataString.indexOf("\n",rawDataString.indexOf("Sensor ID:")); 
-                var end = rawDataString.indexOf("\n",start + 1); 
-                rawData.numAxes = rawDataString.substring(start + 1,end).split(" ").length; //number of datapoints per sample 
-                rawData.header =  rawDataString.substring(0,rawDataString.indexOf("\r\n\r\n")); //header extracted from file 
-            }
-        }); 
-
-        //process the data points
-        var stream = fs.createReadStream("data/Setup7_sensor3.bin", { encoding: null }); 
-        stream.on('data', function(chunk){
-            //move start index forward to data 
-            for(var i = 0; i < chunk.length - 4; i++){
-                if(chunk[i] == 13 && chunk[i+1] == 10 && chunk[i+2] == 13 && chunk[i+3] == 10){
-                    dataStartIndex = i+4; 
-                    break; 
-                }
-            }
-            //process the data and convert to decimal
-            for(var i = dataStartIndex; i < chunk.length; i = i+=3){
-                var isNegative = false; 
-                var num1 = convertToBinary(chunk[i]); 
-                var num2 = convertToBinary(chunk[i+1]); 
-                var num3 = convertToBinary(chunk[i+2]); 
-                var strValue = num3 + num2 + num1 + "00000000"; 
-                var decimalValue = 0; 
-                if(strValue[0] == "1"){
-                    decimalValue = -convertToDecimal(addBinary(flipBits(strValue),"1")); 
-                }else{
-                    decimalValue = convertToDecimal(strValue); 
-                }
-                rawData.data.push(" " + decimalValue); //push all the data here
-            }
-        });
-        
-        //process the data into samples based on the sample size 
-        var processedArray = [];
-        var sample = [];  
-        for(var i = 0; i < rawData.data.length; i++){
-            if(sample.push(rawData.data[i]) == rawData.numAxes){
-                processedArray.push(sample); 
-                sample = []; //new sample once you have reached the sample size 
-            }
-        }
-        var responseObject = {header : rawData.header, processedData : processedArray}; 
-        rawData.data = []; //reset the raw data to avoid constant appending
-        return res.send(responseObject);
+        fs.createReadStream("data/Setup7_sensor3.bin", { encoding: null }).pipe(res);
     });
 
     app.get("/", (req, res) => {
