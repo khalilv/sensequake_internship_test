@@ -9,29 +9,45 @@
 <h2 style="text-align: center;"> WELCOME TO SENSEQUAKE </h2>
 
 <h5> Here is a random integer between 1-100 that gets created everytime the page is loaded: <%=randomInt %> </h5>
-<button onclick="handleClick()">Click here to display the requested data</button>
-<p id="header"></p>
-<p id = "data"></p>
 
+
+<button onclick="handleClick()">Click here to display the requested data</button>
+<div id="header"></div><br/>
+<div id="data"></div>
 <script>
 
 async function handleClick(){
-    var elem = document.getElementById("data"); 
-    elem.innerHTML = ""; 
-    const response = await fetch("http://localhost:80/data")
-    if(response.ok){
-        const responseObject = await response.json();
-        var header = document.getElementById("header"); 
-        header.innerHTML = responseObject.header; 
-        for(var i = 0; i < responseObject.processedData.length; i++){
-            var elem = document.getElementById("data");  
-            elem.innerHTML += responseObject.processedData[i]; 
-            var lineBreak = document.createElement("br"); 
-            elem.appendChild(lineBreak); 
-        } 
-    }else{
-        console.log(response.status); 
+    var data = document.getElementById("data"); 
+    var header = document.getElementById("header"); 
+    header.innerHTML = ""; 
+    const request = new XMLHttpRequest(); 
+    request.open("GET", "/data",true); 
+    request.responseType="arraybuffer"; 
+    request.onload = function(){
+        let byteArray = new Uint8Array(request.response); 
+        let endOfHeader = -1; 
+        for(var i = 0; i < byteArray.length - 4; i++){
+            if (byteArray[i] == 13 && byteArray[i+1] == 10 && byteArray[i+2] == 13 && byteArray[i+3] == 10){
+                endOfHeader = i;
+                break; 
+            }
+        }
+        let headerText = new TextDecoder("utf-8").decode(byteArray.slice(0,endOfHeader)); 
+        header.innerText = "\n" + headerText + "\n\n"; 
+        let headerArray = headerText.split("\r\n"); 
+        let numAxes = headerArray[headerArray.length - 1].split(" ").length; 
+        var sample = []; 
+        for(var i = endOfHeader + 4; i < byteArray.length; i +=3 ){
+            var number = (0 | byteArray[i]<<8 | byteArray[i+1] << 16 | byteArray[i+2] << 24 ); 
+            if(sample.push(" " + number.toString()) == numAxes){
+                header.innerHTML = header.innerHTML + sample + "<br>"; 
+                sample = []; 
+            }
+        }
+        
+
     }
+    request.send(); 
 }
 </script>
 
